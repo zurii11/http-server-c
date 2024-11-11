@@ -7,6 +7,7 @@
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 int read_socket(int sfd, char *buffer)
 {
@@ -49,6 +50,52 @@ int read_socket(int sfd, char *buffer)
     sprintf(content_length, "Content-Length: %d\r\n\r\n", 4);
     strcat(headers, content_length);
     strcat(body, "Test\n");
+    strcat(body, "\r\n\r\n");
+    if(createResponse(200, headers, body, response) < 0)
+      printf("NULL\n");
+    printf("RESPONSE: %s\n", response);
+    if(write(sfd, response, strlen(response)) < 0)  {
+      printf("Failed to send a response...\n");
+      return 1;
+    }  
+  }
+  else if(strcmp(path, "/host") == 0) {
+    char response[1024] = {0};
+    char headers[128] = "Content-Type: text/html\r\n";
+    char content_length[64];
+
+    int file_fd = open("index.html", O_RDONLY);
+    if(file_fd < 0) printf("Error reading file\n");
+
+    struct stat file_stat;
+    fstat(file_fd, &file_stat);
+    ssize_t file_size = file_stat.st_size;
+    char body[file_size];
+
+    ssize_t read_size = 0;
+    ssize_t bytes_read;
+    while((bytes_read = read(file_fd, body, file_size)) > 0) {
+      read_size += bytes_read;
+    }
+
+    sprintf(content_length, "Content-Length: %ld\r\n\r\n", read_size);
+    strcat(headers, content_length);
+    if(createResponse(200, headers, body, response) < 0)
+      printf("NULL\n");
+    printf("RESPONSE: %s\n", response);
+    if(write(sfd, response, strlen(response)) < 0)  {
+      printf("Failed to send a response...\n");
+      return 1;
+    }  
+  }
+  else if(strcmp(path, "/test") == 0) {
+    char response[1024] = {0};
+    char headers[128] = "Content-Type: text/html\r\n";
+    char content_length[64];
+    char body[256] = {0};
+    sprintf(content_length, "Content-Length: %d\r\n\r\n", 84);
+    strcat(headers, content_length);
+    strcat(body, "<html><head><title>Test title</title></head><body><p>test p</p></body></html>\n");
     strcat(body, "\r\n\r\n");
     if(createResponse(200, headers, body, response) < 0)
       printf("NULL\n");
