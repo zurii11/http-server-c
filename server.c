@@ -143,10 +143,50 @@ int read_socket(int sfd, char *buffer)
     }
   } 
   else {
+    printf("PATH: %s\n", path);
+    printf("PATH LEN: %d\n", path_len);
     char response[1024] = {0};
-    printf("%s\n", path);
-    createResponse(404, NULL, NULL, response);
-    if(write(sfd, response, strlen(response)) < 0) {
+    char ext[10] = {0};
+    char headers[128] = {0};
+    char content_length[64] = {0};
+    char filename[path_len-1];
+
+    strcpy(filename, path+1);
+    printf("FILENAME: %s\n", filename);
+
+    // Get the file extension
+    for(int i = path_len-2; i >=0; i--) {
+      if(path[i] == (int)'.') {
+        for(int j = i+1; j < path_len-1; j++) {
+          //printf("Got after: %c\n", path[j-(i+1)]);
+          ext[j-(i+1)] = path[j];
+        }
+      }
+    }
+    if(strcmp(ext, "js") == 0) {
+      sprintf(headers, "Content-Type: text/javascript\r\n");
+    }
+
+    int file_fd = open(filename, O_RDONLY);
+    if(file_fd < 0) printf("Error reading file\n");
+
+    struct stat file_stat;
+    fstat(file_fd, &file_stat);
+    ssize_t file_size = file_stat.st_size;
+    char body[file_size];
+
+    ssize_t read_size = 0;
+    ssize_t bytes_read;
+    while((bytes_read = read(file_fd, body, file_size)) > 0) {
+      read_size += bytes_read;
+    }
+
+    sprintf(content_length, "Content-Length: %ld\r\n\r\n", read_size);
+    strcat(headers, content_length);
+    if(createResponse(200, headers, body, response) < 0)
+      printf("NULL\n");
+    printf("RESPONSE: %s\n", response);
+    if(write(sfd, response, strlen(response)) < 0)  {
       printf("Failed to send a response...\n");
       return 1;
     }
